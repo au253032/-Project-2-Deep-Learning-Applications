@@ -1,15 +1,298 @@
-## Week 7: Text and Multimodal AI
+# Week 8 - Serving the Model as an API (EuroSAT Land-Cover Classification)
 
-- **Text dataset:** SMS Spam Collection (UCI/Kaggle), 5,572 messages (4,825 ham, 747 spam); stratified 80/20 split, test set 1,115 messages.
-- **Word n-gram classifier (1-2 grams, 12,128 features):** macro-F1 = **0.974**, spam precision = 0.979, spam recall = 0.933.
-- **Character n-gram classifier (2-5 grams, 36,449 features):** macro-F1 = **0.982**, spam precision = 0.986, spam recall = 0.953.
-- **Feature analysis:** strongest spam-associated features = call, txt, free, text, reply; strongest ham-associated features = my, me, ok, that, it. Some (uk, to, your) are shortcuts rather than real spam language.
-- **Tricky messages:** my Roman Urdu spam message scored only 0.44 (word) and 0.23 (char), so it would be missed.
-- **NER:** provided gold-set F1 = **0.533** before and **0.875** after the entity ruler. My EuroSAT domain held-out F1 = **0.467** before and **0.400** after rules (first five: 0.480 to 0.923, inflated because the rules were written from those sentences).
-- **Regex:** extracted satellite tile IDs, acquisition dates, coordinates, area, cloud percentage and EuroSAT land-cover labels; **9/9** positive and negative tests passed, and `\b` was shown to prevent over-matching.
-- **OCR:** controlled pairs gave CER 0.062, 0.059 and 0.143 down to **0.000** after context-based correction; EasyOCR on the generated survey report and on the lab invoice gave CER **0.000** raw and corrected (clean synthetic images are easy).
-- **Multimodal pipeline:** Week 6 ResNet18 probabilities + a masked survey note produce an explainable JSON case record with a human-review decision. Phone and email masking was verified before NER and regex extraction.
-- **Limitations:** small NER gold set (10 sentences), synthetic OCR samples, European EuroSAT imagery with possible geographic and seasonal shift, and no automatic legal or planning decisions.
+**Applied AI Lab | FastAPI | PyTorch | ResNet18 | Sentinel-2**
 
-## Responsibility
-The system provides evidence for human review. It must not make legal land-title, tax, subsidy or zoning decisions automatically. Geographic validation and independent review are required before operational use.
+## Project Overview
+
+This project deploys the Week 6 EuroSAT Land-Cover Classification model as a REST API using FastAPI.
+
+The trained ResNet18 model takes RGB satellite images as input and predicts one of 10 land-cover categories from the EuroSAT dataset.
+
+The API makes it possible to access the trained deep learning model through HTTP requests instead of running predictions directly inside a Jupyter Notebook.
+
+## Model Information
+
+| Property | Description |
+|---|---|
+| Model | ResNet18 |
+| Framework | PyTorch |
+| Dataset | EuroSAT |
+| Satellite Source | Sentinel-2 |
+| Input | RGB Satellite Image |
+| Image Resolution | 64 × 64 |
+| Number of Classes | 10 |
+| Checkpoint | `week6_model.pt` |
+| Task | Multi-class Land-Cover Classification |
+
+## Land-Cover Classes
+
+The API supports the following 10 classes:
+
+1. AnnualCrop
+2. Forest
+3. HerbaceousVegetation
+4. Highway
+5. Industrial
+6. Pasture
+7. PermanentCrop
+8. Residential
+9. River
+10. SeaLake
+
+## API Features
+
+- FastAPI REST API.
+- PyTorch ResNet18 model inference.
+- Satellite image upload.
+- 10-class land-cover prediction.
+- Class probability output.
+- Prediction latency measurement.
+- Automatic Swagger documentation.
+- Model loading during application startup.
+- API testing with Pytest.
+- Performance benchmarking.
+
+## Technologies Used
+
+| Technology | Purpose |
+|---|---|
+| Python | Programming language |
+| FastAPI | REST API framework |
+| PyTorch | Deep learning inference |
+| Torchvision | Image preprocessing |
+| ResNet18 | Classification architecture |
+| Pillow | Image processing |
+| NumPy | Numerical operations |
+| Uvicorn | API server |
+| Pytest | Automated testing |
+| HTTPX | API testing |
+
+## Project Structure
+
+```text
+p2-api/
+│
+├── app.py
+├── bench.py
+├── test_api.py
+├── requirements.txt
+├── README.md
+│
+├── week6_model.pt
+├── sample.jpeg
+│
+└── .gitignore
+```
+
+## API Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/` | API root information |
+| GET | `/health` | Check API and model status |
+| POST | `/predict` | Upload satellite image and predict land-cover class |
+
+*The endpoint paths should match the actual routes implemented in `app.py`.*
+
+### 1. Health Check
+
+```http
+GET /health
+```
+
+Checks whether the API is running and whether the trained model has loaded successfully.
+
+### 2. Image Prediction
+
+```http
+POST /predict
+```
+
+Accepts an RGB satellite image and returns the predicted land-cover category, class probabilities, and inference latency.
+
+### Example Prediction Response
+
+```json
+{
+  "label": "Forest",
+  "probabilities": {
+    "AnnualCrop": 0.001,
+    "Forest": 0.982,
+    "HerbaceousVegetation": 0.004,
+    "Highway": 0.001,
+    "Industrial": 0.001,
+    "Pasture": 0.002,
+    "PermanentCrop": 0.002,
+    "Residential": 0.001,
+    "River": 0.003,
+    "SeaLake": 0.003
+  },
+  "latency_ms": 45.2
+}
+```
+
+*Illustrative response only. Actual predictions and latency depend on the uploaded image and hardware.*
+
+## Installation and Setup
+
+### 1. Clone Repository
+
+```bash
+git clone YOUR_GITHUB_REPOSITORY_URL
+cd p2-api
+```
+
+### 2. Create Virtual Environment
+
+```bash
+python -m venv .venv
+```
+
+### 3. Activate Environment
+
+Windows CMD:
+
+```cmd
+.venv\Scripts\activate.bat
+```
+
+### 4. Install PyTorch CPU Version
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+```
+
+### 5. Install Dependencies
+
+```bash
+pip install fastapi "uvicorn[standard]" python-multipart pillow numpy pytest httpx
+```
+
+Or install everything from the requirements file:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Run the API
+
+Start the FastAPI server:
+
+```bash
+python -m uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+Expected startup message:
+
+```text
+Model loaded successfully!
+Classes: [
+  'AnnualCrop',
+  'Forest',
+  'HerbaceousVegetation',
+  'Highway',
+  'Industrial',
+  'Pasture',
+  'PermanentCrop',
+  'Residential',
+  'River',
+  'SeaLake'
+]
+Application startup complete.
+```
+
+## Access API Documentation
+
+Once the server is running:
+
+- API Root: http://127.0.0.1:8000/
+- Swagger UI: http://127.0.0.1:8000/docs
+- ReDoc: http://127.0.0.1:8000/redoc
+
+Swagger UI allows users to upload satellite images and test predictions interactively.
+
+## API Testing
+
+Run automated tests:
+
+```bash
+python -m pytest -v
+```
+
+The test suite can validate:
+
+- API availability.
+- Model loading.
+- Image prediction.
+- Response structure.
+- Class probabilities.
+- Invalid image handling.
+- Missing input handling.
+
+## Performance Benchmarking
+
+Run the benchmark script while the API server is running:
+
+```bash
+python bench.py
+```
+
+The benchmark measures prediction request performance and API response latency.
+
+Recommended metrics to report:
+
+| Metric | Description |
+|---|---|
+| p50 | Median response latency |
+| p95 | 95th percentile latency |
+| Maximum | Highest recorded latency |
+| Throughput | Requests processed per second |
+
+Actual benchmark values should be added after running `bench.py` on the target hardware.
+
+## Model Deployment Workflow
+
+1. Train the ResNet18 model using the EuroSAT dataset.
+2. Save the trained model checkpoint.
+3. Load the checkpoint when FastAPI starts.
+4. Receive an RGB satellite image through the prediction endpoint.
+5. Apply the same preprocessing used during model training.
+6. Run PyTorch inference.
+7. Calculate class probabilities.
+8. Return the predicted land-cover category as JSON.
+
+## Applications
+
+- Agricultural land monitoring.
+- Forest classification.
+- Urban development monitoring.
+- Water-body identification.
+- Environmental analysis.
+- Satellite image classification.
+
+## Limitations
+
+- Predictions depend on image quality and preprocessing.
+- The model is trained on EuroSAT data and may not generalize to every satellite sensor.
+- CPU inference performance depends on hardware.
+- Predictions should be validated before being used in critical land-management decisions.
+
+## Conclusion
+
+This project demonstrates the deployment of a trained ResNet18 land-cover classification model through a FastAPI REST API.
+
+It connects the Week 6 deep learning model with practical API development, allowing satellite images to be classified through HTTP requests.
+
+The project demonstrates machine learning model serving, image preprocessing, inference, API testing, and performance benchmarking.
+
+## Author
+
+**Atteq ur Rehman**
+
+Applied AI | Machine Learning | Computer Vision
+
+## Dataset Reference
+
+EuroSAT Dataset: https://github.com/phelber/EuroSAT
+
+Kaggle Dataset: https://www.kaggle.com/datasets/apollo2506/eurosat-dataset
